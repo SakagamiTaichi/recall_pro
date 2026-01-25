@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "105725100498",
+    "project_id": "recall-pro-8d0f4",
+    "storage_bucket": "recall-pro-8d0f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:105725100498:android:5f71e64cfebd3882e2880b",
+        "android_client_info": {
+          "package_name": "com.example.recall_pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0i527a03YbL-K0fo4Psc_qeyboZLOYWw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
