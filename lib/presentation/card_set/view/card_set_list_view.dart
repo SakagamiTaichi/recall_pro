@@ -5,8 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../model/card_set_model.dart';
 import '../../../theme/theme_provider.dart';
 import '../../../utils/date_formatter.dart';
+import '../../card/view/card_list_view.dart';
 import '../component/card_set_dialog.dart';
-import 'card_set_detail_view.dart';
 import '../view_model/card_set_list_view_model.dart';
 
 /// カードセット一覧画面
@@ -253,7 +253,10 @@ class CardSetListView extends HookConsumerWidget {
   void _navigateToDetail(BuildContext context, CardSetModel cardSet) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => CardSetDetailView(cardSetId: cardSet.id),
+        builder: (context) => CardListView(
+          cardSetId: cardSet.id,
+          cardSetTitle: cardSet.title,
+        ),
       ),
     );
   }
