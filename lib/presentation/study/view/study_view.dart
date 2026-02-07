@@ -35,6 +35,7 @@ class StudyView extends HookConsumerWidget {
           );
         }
         return _StudySessionView(
+          key: ValueKey(sessionData.sessionId),
           cardSetId: cardSetId,
           cardSetTitle: cardSetTitle,
           sessionData: sessionData,
@@ -102,6 +103,7 @@ class _StudySessionView extends HookConsumerWidget {
   final StudySessionData sessionData;
 
   const _StudySessionView({
+    super.key,
     required this.cardSetId,
     required this.cardSetTitle,
     required this.sessionData,

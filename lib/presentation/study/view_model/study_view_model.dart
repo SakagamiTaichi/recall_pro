@@ -1,6 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../config/env_config.dart';
 import '../../../model/card_model.dart';
+import '../../../model/learning_progress_model.dart';
 import '../../../repository/card_repository.dart';
 import '../../../repository/learning_progress_repository.dart';
 import '../../../repository/study_session_repository.dart';
@@ -79,9 +81,33 @@ class StudySessionData {
 class StudyViewModel extends _$StudyViewModel {
   @override
   Future<StudySessionData> build(String cardSetId) async {
-    // カードを取得
     final cardRepository = ref.read(cardRepositoryProvider(cardSetId));
-    final cards = await cardRepository.getCards(cardSetId);
+    final progressRepository = ref.read(learningProgressRepositoryProvider);
+
+    // すべてのカードを取得
+    final allCards = await cardRepository.getCards(cardSetId);
+
+    // カードセットの学習進捗を取得
+    final progressList =
+        await progressRepository.getProgressByCardSet(cardSetId);
+
+    // 進捗をMapに変換（cardId -> progress）
+    final progressMap = {
+      for (var progress in progressList) progress.cardId: progress
+    };
+
+    // 復習が必要なカードをフィルタリング
+    final now = DateTime.now();
+    final cardsToStudy = allCards.where((card) {
+      final progress = progressMap[card.id];
+
+      // 進捗がない（新規カード）→ 学習対象
+      if (progress == null) return true;
+
+      // 復習期日が来ている → 学習対象
+      return progress.nextReviewDate.isBefore(now) ||
+          progress.nextReviewDate.isAtSameMomentAs(now);
+    }).toList();
 
     // セッションを作成
     final sessionRepository = ref.read(studySessionRepositoryProvider);
@@ -90,7 +116,7 @@ class StudyViewModel extends _$StudyViewModel {
     );
 
     return StudySessionData(
-      cards: cards,
+      cards: cardsToStudy,
       sessionId: session.id,
     );
   }
@@ -102,12 +128,27 @@ class StudyViewModel extends _$StudyViewModel {
     required EvaluationType evaluation,
   }) async {
     final progressRepository = ref.read(learningProgressRepositoryProvider);
-    await progressRepository.updateProgressAfterReview(
-      cardId: cardId,
-      cardSetId: cardSetId,
+    final progress = await progressRepository.getProgress(cardId);
+    final now = DateTime.now();
+
+    // 既存の進捗を取得、または新規作成
+    final currentProgress = progress ??
+        LearningProgressModel.create(
+          id: cardId,
+          userId: EnvConfig.fixedUserId,
+          cardId: cardId,
+          cardSetId: cardSetId,
+        );
+
+    // ドメインモデルのメソッドで次回復習日を計算
+    final updatedProgress = currentProgress.calculateNextReview(
       isCorrect: evaluation == EvaluationType.correct,
       isPartial: evaluation == EvaluationType.partial,
+      reviewedAt: now,
     );
+
+    // Repositoryで永続化
+    await progressRepository.upsertProgress(updatedProgress);
   }
 
   /// セッションを完了

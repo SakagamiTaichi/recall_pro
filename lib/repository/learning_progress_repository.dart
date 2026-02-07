@@ -86,113 +86,6 @@ class LearningProgressRepository {
     }
     await batch.commit();
   }
-
-  /// 学習進捗を更新（評価に基づいて次回復習日を計算）
-  Future<void> updateProgressAfterReview({
-    required String cardId,
-    required String cardSetId,
-    required bool isCorrect,
-    required bool isPartial,
-  }) async {
-    final progress = await getProgress(cardId);
-    final now = DateTime.now();
-
-    if (progress == null) {
-      // 新規学習進捗を作成
-      final newProgress = LearningProgressModel.create(
-        id: cardId,
-        userId: _userId,
-        cardId: cardId,
-        cardSetId: cardSetId,
-      );
-
-      final updatedProgress = _calculateNextReview(
-        progress: newProgress,
-        isCorrect: isCorrect,
-        isPartial: isPartial,
-        reviewedAt: now,
-      );
-
-      await upsertProgress(updatedProgress);
-    } else {
-      // 既存の学習進捗を更新
-      final updatedProgress = _calculateNextReview(
-        progress: progress,
-        isCorrect: isCorrect,
-        isPartial: isPartial,
-        reviewedAt: now,
-      );
-
-      await upsertProgress(updatedProgress);
-    }
-  }
-
-  /// 次回復習日を計算
-  LearningProgressModel _calculateNextReview({
-    required LearningProgressModel progress,
-    required bool isCorrect,
-    required bool isPartial,
-    required DateTime reviewedAt,
-  }) {
-    int newLevel = progress.level;
-    Duration interval;
-
-    if (isCorrect && !isPartial) {
-      // ○（正解）
-      newLevel = progress.level + 1;
-      interval = _getIntervalForLevel(newLevel);
-    } else if (isPartial) {
-      // △（やや正解）: 現在の間隔の50%で再出題、レベルは維持
-      final currentInterval = _getIntervalForLevel(progress.level);
-      interval = Duration(
-        milliseconds: (currentInterval.inMilliseconds * 0.5).round(),
-      );
-    } else {
-      // ×（不正解）: レベル0に戻る
-      newLevel = 0;
-      interval = _getIntervalForLevel(0);
-    }
-
-    return progress.copyWith(
-      level: newLevel,
-      nextReviewDate: reviewedAt.add(interval),
-      lastReviewedAt: reviewedAt,
-      reviewCount: progress.reviewCount + 1,
-      correctCount: isCorrect && !isPartial
-          ? progress.correctCount + 1
-          : progress.correctCount,
-      incorrectCount:
-          !isCorrect ? progress.incorrectCount + 1 : progress.incorrectCount,
-      partialCount:
-          isPartial ? progress.partialCount + 1 : progress.partialCount,
-    );
-  }
-
-  /// レベルに応じた復習間隔を取得
-  Duration _getIntervalForLevel(int level) {
-    switch (level) {
-      case 0:
-        return const Duration(minutes: 1); // 1分後
-      case 1:
-        return const Duration(minutes: 10); // 10分後
-      case 2:
-        return const Duration(hours: 1); // 1時間後
-      case 3:
-        return const Duration(hours: 12); // 12時間後
-      case 4:
-        return const Duration(days: 1); // 1日後
-      case 5:
-        return const Duration(days: 3); // 3日後
-      case 6:
-        return const Duration(days: 7); // 7日後
-      case 7:
-        return const Duration(days: 14); // 14日後
-      case 8:
-        return const Duration(days: 30); // 30日後
-      default:
-        return const Duration(days: 60); // 60日後
-    }
-  }
 }
 
 /// LearningProgressRepositoryのプロバイダー
@@ -204,10 +97,7 @@ LearningProgressRepository learningProgressRepository(Ref ref) {
 
 /// 学習進捗のStreamプロバイダー
 @riverpod
-Stream<LearningProgressModel?> learningProgressStream(
-  Ref ref,
-  String cardId,
-) {
+Stream<LearningProgressModel?> learningProgressStream(Ref ref, String cardId) {
   final repository = ref.watch(learningProgressRepositoryProvider);
   return repository.watchProgress(cardId);
 }
