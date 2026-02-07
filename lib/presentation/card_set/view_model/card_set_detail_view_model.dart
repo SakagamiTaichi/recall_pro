@@ -13,11 +13,6 @@ class CardSetDetailViewModel extends _$CardSetDetailViewModel {
   Stream<CardSetModel?> build(String cardSetId) async* {
     final repository = ref.watch(cardSetRepositoryProvider);
 
-    if (repository == null) {
-      yield null;
-      return;
-    }
-
     yield* repository.watchCardSets().map((cardSets) {
       try {
         return cardSets.firstWhere((cs) => cs.id == cardSetId);
@@ -34,8 +29,6 @@ class CardSetDetailViewModel extends _$CardSetDetailViewModel {
     required String description,
   }) async {
     final repository = ref.read(cardSetRepositoryProvider);
-    if (repository == null) return;
-
     await repository.updateCardSetInfo(
       id: id,
       title: title,
@@ -46,8 +39,6 @@ class CardSetDetailViewModel extends _$CardSetDetailViewModel {
   /// カードセットを削除
   Future<void> deleteCardSet(CardSetModel cardSet) async {
     final repository = ref.read(cardSetRepositoryProvider);
-    if (repository == null) return;
-
     await repository.deleteCardSet(cardSet.id);
   }
 }

@@ -12,11 +12,6 @@ class CardSetListViewModel extends _$CardSetListViewModel {
   Stream<List<CardSetModel>> build({String searchQuery = ''}) async* {
     final repository = ref.watch(cardSetRepositoryProvider);
 
-    if (repository == null) {
-      yield [];
-      return;
-    }
-
     yield* repository.watchCardSets().map((cardSets) {
       if (searchQuery.isEmpty) return cardSets;
       final lowerQuery = searchQuery.toLowerCase();
@@ -36,8 +31,6 @@ class CardSetListViewModel extends _$CardSetListViewModel {
     required String description,
   }) async {
     final repository = ref.read(cardSetRepositoryProvider);
-    if (repository == null) return;
-
     await repository.createCardSet(title: title, description: description);
   }
 
@@ -48,8 +41,6 @@ class CardSetListViewModel extends _$CardSetListViewModel {
     required String description,
   }) async {
     final repository = ref.read(cardSetRepositoryProvider);
-    if (repository == null) return;
-
     await repository.updateCardSetInfo(
       id: id,
       title: title,
@@ -60,8 +51,6 @@ class CardSetListViewModel extends _$CardSetListViewModel {
   /// カードセットを削除
   Future<void> deleteCardSet(CardSetModel cardSet) async {
     final repository = ref.read(cardSetRepositoryProvider);
-    if (repository == null) return;
-
     await repository.deleteCardSet(cardSet.id);
   }
 }

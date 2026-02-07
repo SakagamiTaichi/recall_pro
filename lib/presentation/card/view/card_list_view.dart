@@ -169,7 +169,6 @@ class CardListView extends HookConsumerWidget {
           key: ValueKey(card.id),
           card: card,
           index: index + 1,
-          showDragHandle: !isSearching,
           onEdit: () => _showEditDialog(context, ref, card),
           onDelete: () => _showDeleteDialog(context, ref, card),
         );
@@ -273,7 +272,6 @@ class CardListView extends HookConsumerWidget {
 class _CardTile extends StatelessWidget {
   final CardModel card;
   final int index;
-  final bool showDragHandle;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -281,7 +279,6 @@ class _CardTile extends StatelessWidget {
     super.key,
     required this.card,
     required this.index,
-    this.showDragHandle = true,
     required this.onEdit,
     required this.onDelete,
   });
@@ -297,13 +294,6 @@ class _CardTile extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              if (showDragHandle) ...[
-                ReorderableDragStartListener(
-                  index: index - 1,
-                  child: const Icon(Icons.drag_handle, color: Colors.grey),
-                ),
-                const SizedBox(width: 8),
-              ],
               Container(
                 width: 32,
                 height: 32,

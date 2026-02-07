@@ -5,7 +5,13 @@
       "Bash(flutter pub add:*)",
       "Bash(flutter pub get:*)",
       "Bash(flutter pub deps:*)",
-      "Bash(flutter pub run build_runner build:*)"
+      "Bash(flutter pub run build_runner build:*)",
+      "Bash(firebase:*)",
+      "Bash(dart run build_runner:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
 }

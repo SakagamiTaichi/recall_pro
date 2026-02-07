@@ -1,6 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../auth/auth_service.dart';
+import '../../../config/env_config.dart';
 import '../../../model/card_model.dart';
 import '../../../repository/card_repository.dart';
 import '../../../repository/card_set_repository.dart';
@@ -15,14 +15,8 @@ class CardListViewModel extends _$CardListViewModel {
     required String cardSetId,
     String searchQuery = '',
   }) async* {
-    final user = ref.watch(currentUserProvider);
-    if (user == null) {
-      yield [];
-      return;
-    }
-
     final firestore = ref.watch(firestoreProvider);
-    final repository = CardRepository(firestore, user.uid);
+    final repository = CardRepository(firestore, EnvConfig.fixedUserId);
 
     yield* repository.watchCards(cardSetId).map((cards) {
       if (searchQuery.isEmpty) return cards;
@@ -42,11 +36,8 @@ class CardListViewModel extends _$CardListViewModel {
     required String front,
     required String back,
   }) async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
-
     final firestore = ref.read(firestoreProvider);
-    final repository = CardRepository(firestore, user.uid);
+    final repository = CardRepository(firestore, EnvConfig.fixedUserId);
 
     // 現在のカード数を取得してorderを設定
     final currentCount = await repository.getCardCount(cardSetId);
@@ -60,9 +51,7 @@ class CardListViewModel extends _$CardListViewModel {
 
     // カードセットのcardCountを更新
     final cardSetRepo = ref.read(cardSetRepositoryProvider);
-    if (cardSetRepo != null) {
-      await cardSetRepo.updateCardCount(cardSetId, currentCount + 1);
-    }
+    await cardSetRepo.updateCardCount(cardSetId, currentCount + 1);
   }
 
   /// カードを更新
@@ -71,11 +60,8 @@ class CardListViewModel extends _$CardListViewModel {
     required String front,
     required String back,
   }) async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
-
     final firestore = ref.read(firestoreProvider);
-    final repository = CardRepository(firestore, user.uid);
+    final repository = CardRepository(firestore, EnvConfig.fixedUserId);
 
     await repository.updateCard(
       cardSetId: cardSetId,
@@ -87,29 +73,21 @@ class CardListViewModel extends _$CardListViewModel {
 
   /// カードを削除
   Future<void> deleteCard(CardModel card) async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
-
     final firestore = ref.read(firestoreProvider);
-    final repository = CardRepository(firestore, user.uid);
+    final repository = CardRepository(firestore, EnvConfig.fixedUserId);
 
     await repository.deleteCard(cardSetId, card.id);
 
     // カードセットのcardCountを更新
     final cardSetRepo = ref.read(cardSetRepositoryProvider);
-    if (cardSetRepo != null) {
-      final currentCount = await repository.getCardCount(cardSetId);
-      await cardSetRepo.updateCardCount(cardSetId, currentCount);
-    }
+    final currentCount = await repository.getCardCount(cardSetId);
+    await cardSetRepo.updateCardCount(cardSetId, currentCount);
   }
 
   /// カードの並び替え
   Future<void> reorderCards(List<CardModel> reorderedCards) async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
-
     final firestore = ref.read(firestoreProvider);
-    final repository = CardRepository(firestore, user.uid);
+    final repository = CardRepository(firestore, EnvConfig.fixedUserId);
 
     await repository.updateCardsOrder(cardSetId, reorderedCards);
   }

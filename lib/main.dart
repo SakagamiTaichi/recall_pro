@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'auth/auth_wrapper.dart';
@@ -9,6 +10,9 @@ import 'presentation/card_set/view/card_set_list_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 環境変数を読み込み
+  await dotenv.load(fileName: '.env');
 
   // Firebase初期化
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

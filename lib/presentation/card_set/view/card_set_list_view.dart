@@ -6,6 +6,7 @@ import '../../../model/card_set_model.dart';
 import '../../../theme/theme_provider.dart';
 import '../../../utils/date_formatter.dart';
 import '../../card/view/card_list_view.dart';
+import '../../study/view/study_view.dart';
 import '../component/card_set_dialog.dart';
 import '../view_model/card_set_list_view_model.dart';
 
@@ -151,6 +152,7 @@ class CardSetListView extends HookConsumerWidget {
         return _CardSetTile(
           cardSet: cardSet,
           onTap: () => _navigateToDetail(context, cardSet),
+          onStudy: () => _navigateToStudy(context, cardSet),
           onEdit: () => _showEditDialog(context, ref, cardSet),
           onDelete: () => _showDeleteDialog(context, ref, cardSet),
         );
@@ -260,18 +262,31 @@ class CardSetListView extends HookConsumerWidget {
       ),
     );
   }
+
+  void _navigateToStudy(BuildContext context, CardSetModel cardSet) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => StudyView(
+          cardSetId: cardSet.id,
+          cardSetTitle: cardSet.title,
+        ),
+      ),
+    );
+  }
 }
 
 /// カードセットのリストタイル
 class _CardSetTile extends StatelessWidget {
   final CardSetModel cardSet;
   final VoidCallback onTap;
+  final VoidCallback onStudy;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _CardSetTile({
     required this.cardSet,
     required this.onTap,
+    required this.onStudy,
     required this.onEdit,
     required this.onDelete,
   });
@@ -355,6 +370,21 @@ class _CardSetTile extends StatelessWidget {
                     label: DateFormatter.formatRelative(cardSet.updatedAt),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: cardSet.cardCount > 0 ? onStudy : null,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('学習を開始'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

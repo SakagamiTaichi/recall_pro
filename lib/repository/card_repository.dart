@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../auth/auth_service.dart';
+import '../config/env_config.dart';
 import '../model/card_model.dart';
 import 'card_set_repository.dart';
 
@@ -114,23 +114,15 @@ class CardRepository {
 
 /// CardRepositoryのプロバイダー
 @riverpod
-CardRepository? cardRepository(Ref ref, String cardSetId) {
-  final user = ref.watch(currentUserProvider);
-  if (user == null) return null;
-
+CardRepository cardRepository(Ref ref, String cardSetId) {
   final firestore = ref.watch(firestoreProvider);
-  return CardRepository(firestore, user.uid);
+  return CardRepository(firestore, EnvConfig.fixedUserId);
 }
 
 /// カード一覧のStreamプロバイダー
 @riverpod
 Stream<List<CardModel>> cardsStream(Ref ref, String cardSetId) {
-  final user = ref.watch(currentUserProvider);
-  if (user == null) {
-    return Stream.value([]);
-  }
-
   final firestore = ref.watch(firestoreProvider);
-  final repository = CardRepository(firestore, user.uid);
+  final repository = CardRepository(firestore, EnvConfig.fixedUserId);
   return repository.watchCards(cardSetId);
 }
