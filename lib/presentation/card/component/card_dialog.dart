@@ -8,13 +8,11 @@ import '../../../model/card_model.dart';
 class CardDialog extends HookConsumerWidget {
   final CardModel? card;
   final Future<void> Function(String front, String back) onSave;
-  final bool enableContinuousCreation;
 
   const CardDialog({
     super.key,
     this.card,
     required this.onSave,
-    this.enableContinuousCreation = false,
   });
 
   bool get isEditing => card != null;
@@ -29,7 +27,7 @@ class CardDialog extends HookConsumerWidget {
     );
     final formKey = useMemoized(() => GlobalKey<FormState>());
     final isLoading = useState(false);
-    final continuousMode = useState(enableContinuousCreation);
+    final continuousMode = useState(!isEditing);
 
     Future<void> handleSave() async {
       if (formKey.currentState?.validate() ?? false) {
@@ -119,18 +117,6 @@ class CardDialog extends HookConsumerWidget {
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => handleSave(),
               ),
-              if (!isEditing) ...[
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  title: const Text('連続作成モード'),
-                  subtitle: const Text('保存後も続けてカードを追加'),
-                  value: continuousMode.value,
-                  onChanged: (value) {
-                    continuousMode.value = value ?? false;
-                  },
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
             ],
           ),
         ),

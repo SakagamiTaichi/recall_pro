@@ -206,7 +206,6 @@ class CardListView extends HookConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => CardDialog(
-        enableContinuousCreation: true,
         onSave: (front, back) async {
           await viewModel.createCard(front: front, back: back);
         },
