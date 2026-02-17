@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../../../model/ai_judgment_model.dart';
 import '../../../model/card_model.dart';
+import '../../../repository/tts_settings_repository.dart';
+import '../../../service/tts_service.dart';
+import '../../../utils/api_exception.dart';
+import '../../settings/view/tts_settings_view.dart';
 import '../view_model/study_view_model.dart';
 
 /// 学習画面の状態
@@ -316,7 +321,7 @@ class _QuestionView extends HookWidget {
 }
 
 /// 解答確認画面
-class _AnswerView extends StatelessWidget {
+class _AnswerView extends HookConsumerWidget {
   final CardModel? currentCard;
   final StudyStats stats;
   final String userAnswer;
@@ -330,10 +335,79 @@ class _AnswerView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (currentCard == null) {
       return const Center(child: Text('カードがありません'));
     }
+
+    // TTS関連の状態
+    final isSpeaking = useState(false);
+    final settingsAsync = ref.watch(ttsSettingsProvider);
+
+    // AI判定状態
+    final aiJudgment = useState<AiJudgmentModel?>(null);
+    final isJudging = useState(false);
+    final judgmentError = useState<String?>(null);
+    final isJudgmentExpanded = useState(true);
+
+    // AI判定実行関数
+    Future<void> executeAiJudgment() async {
+      if (currentCard == null) return;
+
+      aiJudgment.value = null;
+      judgmentError.value = null;
+      isJudging.value = true;
+      isJudgmentExpanded.value = true; // 判定結果を自動展開
+
+      try {
+        final viewModel =
+            ref.read(studyViewModelProvider(currentCard!.cardSetId).notifier);
+        final result = await viewModel.requestAiJudgment(
+          question: currentCard!.front,
+          modelAnswer: currentCard!.back,
+          userAnswer: userAnswer,
+        );
+
+        aiJudgment.value = result;
+      } on ApiException catch (e) {
+        judgmentError.value = e.message;
+      } catch (e) {
+        judgmentError.value = '予期しないエラーが発生しました';
+      } finally {
+        isJudging.value = false;
+      }
+    }
+
+    // 自動再生の処理
+    useEffect(() {
+      settingsAsync.whenData((settings) async {
+        final ttsService = ref.read(ttsServiceProvider);
+
+        // TTS設定で初期化
+        if (!ttsService.isInitialized) {
+          await ttsService.initialize(settings);
+        }
+
+        if (settings.autoPlay && currentCard != null) {
+          // ハンドラー設定
+          ttsService.setStartHandler(() {
+            isSpeaking.value = true;
+          });
+          ttsService.setCompletionHandler(() {
+            isSpeaking.value = false;
+          });
+          ttsService.setErrorHandler((_) {
+            isSpeaking.value = false;
+          });
+
+          // 少し遅延させてから自動再生
+          await Future.delayed(const Duration(milliseconds: 300));
+          await ttsService.speak(currentCard!.back);
+        }
+      });
+
+      return null;
+    }, [currentCard?.id]);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -373,12 +447,26 @@ class _AnswerView extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // 正解
-                  _buildSection(
+                  // 正解 + TTSボタン
+                  _buildAnswerSectionWithTts(
                     context,
-                    '正解',
-                    currentCard!.back,
-                    Colors.green[700]!,
+                    ref,
+                    currentCard!,
+                    isSpeaking,
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // AI判定セクション（新規追加）
+                  _buildAiJudgmentSection(
+                    context,
+                    aiJudgment: aiJudgment.value,
+                    isJudging: isJudging.value,
+                    judgmentError: judgmentError.value,
+                    isExpanded: isJudgmentExpanded.value,
+                    onJudge: executeAiJudgment,
+                    onExpandToggle: () =>
+                        isJudgmentExpanded.value = !isJudgmentExpanded.value,
                   ),
                 ],
               ),
@@ -461,6 +549,281 @@ class _AnswerView extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyLarge,
           ),
         ),
+      ],
+    );
+  }
+
+  /// 正解セクション + TTSボタン
+  Widget _buildAnswerSectionWithTts(
+    BuildContext context,
+    WidgetRef ref,
+    CardModel card,
+    ValueNotifier<bool> isSpeaking,
+  ) {
+    final color = Colors.green[700]!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '正解',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            Row(
+              children: [
+                // 設定ボタン
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const TtsSettingsView(),
+                      ),
+                    );
+                  },
+                  tooltip: '音声設定',
+                ),
+                // TTSボタン
+                IconButton(
+                  icon: Icon(
+                    isSpeaking.value ? Icons.stop_circle : Icons.volume_up,
+                  ),
+                  onPressed: () async {
+                    final ttsService = ref.read(ttsServiceProvider);
+                    final settingsAsync = ref.read(ttsSettingsProvider);
+
+                    await settingsAsync.when(
+                      data: (settings) async {
+                        // TTS設定で初期化（まだの場合）
+                        if (!ttsService.isInitialized) {
+                          await ttsService.initialize(settings);
+                        }
+
+                        if (isSpeaking.value) {
+                          await ttsService.stop();
+                          isSpeaking.value = false;
+                        } else {
+                          // ハンドラー設定
+                          ttsService.setStartHandler(() {
+                            isSpeaking.value = true;
+                          });
+                          ttsService.setCompletionHandler(() {
+                            isSpeaking.value = false;
+                          });
+                          ttsService.setErrorHandler((_) {
+                            isSpeaking.value = false;
+                          });
+
+                          await ttsService.speak(card.back);
+                        }
+                      },
+                      loading: () {},
+                      error: (error, stack) {},
+                    );
+                  },
+                  color: color,
+                  iconSize: 32,
+                  tooltip: isSpeaking.value ? '停止' : '読み上げ',
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Text(
+            card.back,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// AI判定セクション（アコーディオン式）
+  Widget _buildAiJudgmentSection(
+    BuildContext context, {
+    required AiJudgmentModel? aiJudgment,
+    required bool isJudging,
+    required String? judgmentError,
+    required bool isExpanded,
+    required VoidCallback onJudge,
+    required VoidCallback onExpandToggle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.purple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.purple[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ヘッダー（AIアイコン + タイトル + ボタン）
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.psychology, color: Colors.purple[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'AI判定',
+                    style: TextStyle(
+                      color: Colors.purple[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: isJudging ? null : onJudge,
+                icon: isJudging
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(isJudging ? '判定中...' : 'AIが判定'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple[600],
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+
+          // アコーディオン式の判定結果表示
+          if (aiJudgment != null) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: onExpandToggle,
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.purple[700],
+                  ),
+                  Text(
+                    isExpanded ? '判定結果を閉じる' : '判定結果を表示',
+                    style: TextStyle(color: Colors.purple[700]),
+                  ),
+                ],
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 16),
+              _buildJudgmentResult(context, aiJudgment),
+            ],
+          ],
+
+          // エラー表示
+          if (judgmentError != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red[700]),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(judgmentError)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 判定結果の詳細表示
+  Widget _buildJudgmentResult(BuildContext context, AiJudgmentModel judgment) {
+    // 判定タイプに応じた色・アイコン・ラベル
+    final (color, icon, label) = switch (judgment.judgment) {
+      AiJudgmentType.correct => (Colors.green, Icons.check_circle, '正解'),
+      AiJudgmentType.partial => (Colors.orange, Icons.adjust, '部分的に正解'),
+      AiJudgmentType.incorrect => (Colors.red, Icons.cancel, '不正解'),
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 判定結果バッジ
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // 判定理由
+        const Text('理由', style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(judgment.reason),
+
+        // 提案表現（ある場合のみ）
+        if (judgment.suggestedAnswers.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('別の表現', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ...judgment.suggestedAnswers.map((suggestion) {
+            return Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    suggestion.sentence,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(suggestion.point,
+                      style: TextStyle(color: Colors.grey[700])),
+                ],
+              ),
+            );
+          }),
+        ],
       ],
     );
   }

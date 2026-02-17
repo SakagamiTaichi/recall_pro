@@ -6,6 +6,7 @@ import '../../../model/card_set_model.dart';
 import '../../../theme/theme_provider.dart';
 import '../../../utils/date_formatter.dart';
 import '../../card/view/card_list_view.dart';
+import '../../settings/view/tts_settings_view.dart';
 import '../../study/view/study_view.dart';
 import '../component/card_set_dialog.dart';
 import '../view_model/card_set_list_view_model.dart';
@@ -29,6 +30,17 @@ class CardSetListView extends HookConsumerWidget {
       appBar: AppBar(
         title: const Text('RecallPro'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_voice),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const TtsSettingsView(),
+                ),
+              );
+            },
+            tooltip: '音声設定',
+          ),
           IconButton(
             icon: const Icon(Icons.brightness_6),
             onPressed: () => _showThemeDialog(context, ref),

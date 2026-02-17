@@ -1,8 +1,10 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../config/env_config.dart';
+import '../../../model/ai_judgment_model.dart';
 import '../../../model/card_model.dart';
 import '../../../model/learning_progress_model.dart';
+import '../../../repository/ai_judgment_repository.dart';
 import '../../../repository/card_repository.dart';
 import '../../../repository/learning_progress_repository.dart';
 import '../../../repository/study_session_repository.dart';
@@ -107,7 +109,8 @@ class StudyViewModel extends _$StudyViewModel {
       // 復習期日が来ている → 学習対象
       return progress.nextReviewDate.isBefore(now) ||
           progress.nextReviewDate.isAtSameMomentAs(now);
-    }).toList();
+    }).toList()
+      ..shuffle();
 
     // セッションを作成
     final sessionRepository = ref.read(studySessionRepositoryProvider);
@@ -170,5 +173,20 @@ class StudyViewModel extends _$StudyViewModel {
       // ignore: avoid_print
       print('セッション完了時のエラー: $e');
     }
+  }
+
+  /// AI判定を実行
+  Future<AiJudgmentModel> requestAiJudgment({
+    required String question,
+    required String modelAnswer,
+    required String userAnswer,
+  }) async {
+    final repository = ref.read(aiJudgmentRepositoryProvider);
+
+    return await repository.judgeAnswer(
+      question: question,
+      modelAnswer: modelAnswer,
+      userAnswer: userAnswer,
+    );
   }
 }
